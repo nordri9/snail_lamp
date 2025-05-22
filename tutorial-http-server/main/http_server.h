@@ -1,5 +1,5 @@
-#ifndef MAIN_WIFI_H
-#define MAIN_WIFI_H
+#ifndef MAIN_HTTP_SERVER_H
+#define MAIN_HTTP_SERVER_H
 
 #include "esp_err.h" // Include this if your functions return esp_err_t, good practice
 #include "esp_event.h" // For esp_event_base_t, etc.
@@ -15,7 +15,8 @@ extern "C" {
  * predefined SSID, password, and channel. It registers an event handler
  * for Wi-Fi events.
  */
-void wifi_init_softap(void);
+
+void start_webserver(void);
 
 // If you had other public functions in wifi.c, you'd declare them here too.
 // For example:
@@ -26,4 +27,4 @@ void wifi_init_softap(void);
 }
 #endif
 
-#endif // MAIN_WIFI_H
+#endif // MAIN_HTTP_SERVER_H
