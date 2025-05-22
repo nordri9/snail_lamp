@@ -9,18 +9,16 @@ extern "C" {
 #endif
 
 /**
- * @brief Initializes the Wi-Fi in SoftAP mode.
- *
- * This function sets up the ESP32 as a Wi-Fi Access Point with the
- * predefined SSID, password, and channel. It registers an event handler
- * for Wi-Fi events.
+ * @brief Configures the LED strip. Should be called once at startup.
+ * @return Handle to the LED strip.
  */
-void led_test(void);
+//led_strip_handle_t configure_led(void);
 
-// If you had other public functions in wifi.c, you'd declare them here too.
-// For example:
-// esp_err_t wifi_start_ap(void);
-// esp_err_t wifi_stop_ap(void);
+/**
+ * @brief Sets the state of the LED(s).
+ * @param on True to turn the LED on, false to turn it off.
+ */
+void set_led_state(bool on);
 
 #ifdef __cplusplus
 }

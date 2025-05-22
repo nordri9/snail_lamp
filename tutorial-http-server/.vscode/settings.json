@@ -11,5 +11,8 @@
         "compare": "c",
         "cstdint": "c"
     },
-    "files.autoSave": "afterDelay"
+    "files.autoSave": "afterDelay",
+    "idf.espIdfPath": "/home/nordri/esp/esp-idf",
+    "idf.toolsPath": "/home/nordri/.espressif",
+    "idf.pythonInstallPath": "/usr/bin/python3"
 }
