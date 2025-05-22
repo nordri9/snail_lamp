@@ -59,8 +59,8 @@ void app_main(void)
 {
     printf("Hello tutorial!\n");
 
-    ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
-    //printf("Event WIFI_EVENT_AP_STACONNECTED %d\n",WIFI_EVENT_AP_STACONNECTED);
+    // Initialize SPIFFS
+    ESP_ERROR_CHECK(init_spiffs());
 
     ESP_LOGI(TAG, "Initializing Wi-Fi in SoftAP mode...");
     wifi_init_softap(); // Call your Wi-Fi initialization function
