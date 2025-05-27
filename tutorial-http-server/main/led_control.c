@@ -27,13 +27,15 @@
 #endif                                 // LED_STRIP_USE_DMA
 
 // GPIO assignment
-#define LED_STRIP_GPIO_PIN 26
+#define LED_STRIP_GPIO_PIN 27
 
 // 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
 #define LED_STRIP_RMT_RES_HZ (10 * 1000 * 1000)
 
 static const char *TAG = "LED_control";
 
+// Make led_strip handle global or pass it around
+static led_strip_handle_t global_led_strip;
 
 led_strip_handle_t configure_led(void)
 {
@@ -57,35 +59,37 @@ led_strip_handle_t configure_led(void)
         }};
 
     // LED Strip object handle
-    led_strip_handle_t led_strip;
-    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
+    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &global_led_strip));
     ESP_LOGI(TAG, "Created LED strip object with RMT backend");
-    return led_strip;
+    return global_led_strip;
 }
 
-
 // New function to set LED state
-void set_led_state(bool on) {
-//led_strip_handle_t led_strip = configure_led();
-
-    ESP_LOGI(TAG, "Start LED switching");  
-    if (on) {
+void set_led_state(bool on)
+{
+    if (on)
+    {
         // Set LED 0 to red (adjust colors/LEDs as needed)
-        ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, 0, 10, 0, 0));
-        ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+        ESP_ERROR_CHECK(led_strip_set_pixel(global_led_strip, 0, 255, 0, 0));
+        ESP_ERROR_CHECK(led_strip_set_pixel(global_led_strip, 1, 255, 0, 255));
+
+        ESP_ERROR_CHECK(led_strip_refresh(global_led_strip));
         ESP_LOGI(TAG, "LED set to ON");
-    } else {
+    }
+    else
+    {
         // Clear all LEDs (turn off)
-        ESP_ERROR_CHECK(led_strip_clear(led_strip));
+        ESP_ERROR_CHECK(led_strip_clear(global_led_strip));
         ESP_LOGI(TAG, "LED set to OFF");
     }
 }
 
 // Optional: function to get current LED state (if needed for UI update)
-bool get_led_state(void) {
+bool get_led_state(void)
+{
     // This is a simple state tracking. In a more complex app,
     // you might read actual GPIO state if directly controlling GPIO.
     // For WS2812, we rely on the state we're tracking.
     // For this example, we'll track it in http_server.c as `led_is_on`
-    return false; // Will be tracked in http_server.c
-}
+    return false;
+} // Will be tracked in http_server.c

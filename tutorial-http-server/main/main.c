@@ -16,27 +16,32 @@
 
 static const char *TAG = "main";
 
-
 // --- SPIFFS Initialization Function ---
 static esp_err_t init_spiffs(void)
 {
     ESP_LOGI(TAG, "Initializing SPIFFS");
 
     esp_vfs_spiffs_conf_t conf = {
-      .base_path = "/spiffs",         // Mount point: files will be accessed via /spiffs/...
-      .partition_label = "storage",   // Label from partitions.csv
-      .max_files = 5,                 // Max files that can be open at the same time
-      .format_if_mount_failed = true  // Format partition if mount fails
+        .base_path = "/spiffs",        // Mount point: files will be accessed via /spiffs/...
+        .partition_label = "storage",  // Label from partitions.csv
+        .max_files = 5,                // Max files that can be open at the same time
+        .format_if_mount_failed = true // Format partition if mount fails
     };
 
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
 
-    if (ret != ESP_OK) {
-        if (ret == ESP_FAIL) {
+    if (ret != ESP_OK)
+    {
+        if (ret == ESP_FAIL)
+        {
             ESP_LOGE(TAG, "Failed to mount or format filesystem");
-        } else if (ret == ESP_ERR_NOT_FOUND) {
+        }
+        else if (ret == ESP_ERR_NOT_FOUND)
+        {
             ESP_LOGE(TAG, "Failed to find SPIFFS partition");
-        } else {
+        }
+        else
+        {
             ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
         }
         return ret;
@@ -44,16 +49,18 @@ static esp_err_t init_spiffs(void)
 
     size_t total = 0, used = 0;
     ret = esp_spiffs_info(conf.partition_label, &total, &used);
-    if (ret != ESP_OK) {
+    if (ret != ESP_OK)
+    {
         ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
-    } else {
+    }
+    else
+    {
         ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
     }
     return ret;
 }
 
-
-
+extern led_strip_handle_t global_led_strip;
 
 void app_main(void)
 {
@@ -64,18 +71,23 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Initializing Wi-Fi in SoftAP mode...");
     wifi_init_softap(); // Call your Wi-Fi initialization function
-    
-    led_strip_handle_t led_strip = configure_led();
 
+    ESP_LOGI(TAG, "Configuring LED Matrix...");
+
+    // Configure the LED strip
+    configure_led();
+    // Initially set LED off
+    set_led_state(false);
+    
     ESP_LOGI(TAG, "Starting HTTP web server...");
     httpd_handle_t server = start_webserver(); // Call the web server function
 
-    if (server != NULL) {
+    if (server != NULL)
+    {
         ESP_LOGI(TAG, "Web server started successfully!");
-    } else {
+    }
+    else
+    {
         ESP_LOGE(TAG, "Failed to start web server!");
     }
-    
-
-    set_led_state(false); // Initially set LED off
 }

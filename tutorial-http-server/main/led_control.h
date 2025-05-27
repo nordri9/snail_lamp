@@ -3,6 +3,7 @@
 
 #include "esp_err.h" // Include this if your functions return esp_err_t, good practice
 #include "esp_event.h" // For esp_event_base_t, etc.
+#include "led_strip.h"
 
 #ifdef __cplusplus
 extern "C" {
