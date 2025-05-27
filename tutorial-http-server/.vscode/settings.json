@@ -12,7 +12,7 @@
         "cstdint": "c"
     },
     "files.autoSave": "afterDelay",
-    "idf.espIdfPath": "/home/nordri9/esp/esp-idf",
-    "idf.toolsPath": "/home/nordri9/.espressif",
+    "idf.espIdfPath": "/home/nordri/esp/esp-idf",
+    "idf.toolsPath": "/home/nordri/.espressif",
     "idf.pythonInstallPath": "/usr/bin/python3"
 }

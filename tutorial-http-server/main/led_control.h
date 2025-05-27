@@ -12,7 +12,7 @@ extern "C" {
  * @brief Configures the LED strip. Should be called once at startup.
  * @return Handle to the LED strip.
  */
-//led_strip_handle_t configure_led(void);
+led_strip_handle_t configure_led(void);
 
 /**
  * @brief Sets the state of the LED(s).

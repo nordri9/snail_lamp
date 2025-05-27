@@ -64,6 +64,8 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Initializing Wi-Fi in SoftAP mode...");
     wifi_init_softap(); // Call your Wi-Fi initialization function
+    
+    led_strip_handle_t led_strip = configure_led();
 
     ESP_LOGI(TAG, "Starting HTTP web server...");
     httpd_handle_t server = start_webserver(); // Call the web server function
@@ -73,10 +75,7 @@ void app_main(void)
     } else {
         ESP_LOGE(TAG, "Failed to start web server!");
     }
-    // Your main application logic continues here.
-    // The web server will run in the background.
-    // For example, you might have a loop for other tasks or simply let it run.
-    while(1) {
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for 1 second
-    }
+    
+
+    set_led_state(false); // Initially set LED off
 }
