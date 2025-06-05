@@ -77,8 +77,8 @@ void app_main(void)
     // Configure the LED strip
     configure_led();
     // Initially set LED off
-    set_led_state(false);
-    
+    set_led_state(true);
+
     ESP_LOGI(TAG, "Starting HTTP web server...");
     httpd_handle_t server = start_webserver(); // Call the web server function
 

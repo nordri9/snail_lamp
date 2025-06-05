@@ -22,7 +22,7 @@
 #define LED_STRIP_MEMORY_BLOCK_WORDS 1024 // this determines the DMA block size
 #else
 // Numbers of the LED in the strip
-#define LED_STRIP_LED_COUNT 2
+#define LED_STRIP_LED_COUNT 50
 #define LED_STRIP_MEMORY_BLOCK_WORDS 0 // let the driver choose a proper memory block size automatically
 #endif                                 // LED_STRIP_USE_DMA
 
@@ -70,8 +70,13 @@ void set_led_state(bool on)
     if (on)
     {
         // Set LED 0 to red (adjust colors/LEDs as needed)
-        ESP_ERROR_CHECK(led_strip_set_pixel(global_led_strip, 0, 255, 0, 0));
-        ESP_ERROR_CHECK(led_strip_set_pixel(global_led_strip, 1, 255, 0, 255));
+        //ESP_ERROR_CHECK(led_strip_set_pixel(global_led_strip, 0, 255, 0, 0));
+        //ESP_ERROR_CHECK(led_strip_set_pixel(global_led_strip, 1, 255, 0, 255));
+
+        for (int i = 0; i < LED_STRIP_LED_COUNT; i++)
+        {
+            ESP_ERROR_CHECK(led_strip_set_pixel(global_led_strip, i, 255, 50, 50));
+        }
 
         ESP_ERROR_CHECK(led_strip_refresh(global_led_strip));
         ESP_LOGI(TAG, "LED set to ON");
