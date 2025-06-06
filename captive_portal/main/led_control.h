@@ -21,9 +21,10 @@ led_strip_handle_t configure_led(void);
  */
 void set_led_state(bool on);
 
-void set_overall_brightness(uint8_t brightness);
-
 void set_led_hsv(uint16_t hue);
+void set_led_brightness(uint8_t brightness);
+uint16_t get_last_set_hue(void);
+uint8_t get_last_set_brightness(void);
 
 #ifdef __cplusplus
 }

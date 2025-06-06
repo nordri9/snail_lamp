@@ -1,16 +1,16 @@
-//#include <sys/param.h>
+// #include <sys/param.h>
 
-//#include "esp_event.h"
+// #include "esp_event.h"
 #include "esp_log.h"
-//#include "esp_mac.h"
+// #include "esp_mac.h"
 
-//#include "esp_netif.h"
+// #include "esp_netif.h"
 #include "lwip/inet.h"
 
 #include "esp_http_server.h"
-//#include "dns_server.h"
+// #include "dns_server.h"
 
-#include"led_control.h"
+#include "led_control.h"
 
 static const char *TAG = "webserver";
 
@@ -90,7 +90,23 @@ static esp_err_t js_get_handler(httpd_req_t *req)
 }
 
 // Keep track of the LED state
-static bool led_is_on = false;
+static bool led_is_on = true;
+
+/* Handler for "/status" URI - provides current LED state, hue, AND brightness */
+static esp_err_t status_get_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "Received /status request");
+
+    uint16_t current_hue = get_last_set_hue();
+    uint8_t current_brightness = get_last_set_brightness(); // <<< NEW: Get last brightness
+
+    char resp_str[150]; // Increased buffer size for hue and brightness
+    sprintf(resp_str, "{\"led_state\":%d, \"current_hue\":%d, \"current_brightness\":%d}",
+            led_is_on ? 1 : 0, current_hue, current_brightness); // <<< MODIFIED JSON
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, resp_str, strlen(resp_str));
+    return ESP_OK;
+}
 
 /* Handler for "/toggle" URI - toggles the LED */
 static esp_err_t toggle_get_handler(httpd_req_t *req)
@@ -110,13 +126,107 @@ static esp_err_t toggle_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-/* Handler for "/status" URI - provides current LED state */
-static esp_err_t status_get_handler(httpd_req_t *req)
+/* Handler for setting LED color via hue */
+static esp_err_t set_hue_get_handler(httpd_req_t *req)
 {
-    ESP_LOGI(TAG, "Received /status request");
+    char *buf;
+    size_t buf_len;
+    uint16_t hue = 0;
+
+    // Get query string length and allocate memory for it
+    buf_len = httpd_req_get_url_query_len(req) + 1;
+    if (buf_len > 1)
+    { // If there is a query string
+        buf = (char *)malloc(buf_len);
+        if (!buf)
+        {
+            ESP_LOGE(TAG, "Failed to allocate memory for query buffer");
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Internal server error");
+            return ESP_FAIL;
+        }
+        if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK)
+        {
+            char param[10]; // Buffer for the 'hue' parameter value
+            if (httpd_query_key_value(buf, "hue", param, sizeof(param)) == ESP_OK)
+            {
+                hue = atoi(param);
+                ESP_LOGI(TAG, "Received hue: %d", hue);
+                // Ensure LED is on before setting color
+                if (!led_is_on)
+                {
+                    led_is_on = true;
+                    set_led_state(true); // Turn on the LED if it's off
+                }
+                set_led_hsv(hue); // Call the new LED function
+            }
+            else
+            {
+                ESP_LOGW(TAG, "Missing 'hue' parameter in query string");
+            }
+        }
+        free(buf);
+    }
+    else
+    {
+        ESP_LOGW(TAG, "No query string in /set_hue request");
+    }
 
     char resp_str[50];
-    sprintf(resp_str, "{\"led_state\":%d}", led_is_on ? 1 : 0);
+    sprintf(resp_str, "{\"status\":\"success\", \"new_state\":%d}", led_is_on ? 1 : 0);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, resp_str, strlen(resp_str));
+    return ESP_OK;
+}
+
+/* Handler for setting LED brightness */
+static esp_err_t set_brightness_get_handler(httpd_req_t *req)
+{ // <<< NEW
+    char *buf;
+    size_t buf_len;
+    uint8_t brightness = 0;
+
+    buf_len = httpd_req_get_url_query_len(req) + 1;
+    if (buf_len > 1)
+    {
+        buf = (char *)malloc(buf_len);
+        if (!buf)
+        {
+            ESP_LOGE(TAG, "Failed to allocate memory for query buffer");
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Internal server error");
+            return ESP_FAIL;
+        }
+        if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK)
+        {
+            char param[10];
+            if (httpd_query_key_value(buf, "value", param, sizeof(param)) == ESP_OK)
+            { // 'value' for brightness
+                brightness = atoi(param);
+                // Clamp brightness to 0-255 if needed, though slider limits usually handle this
+                if (brightness > 255)
+                    brightness = 255;
+
+                ESP_LOGI(TAG, "Received brightness: %d", brightness);
+                if (!led_is_on)
+                { // If LED is off, turn it on
+                    led_is_on = true;
+                    set_led_state(true);
+                }
+                set_led_brightness(brightness); // Set brightness (hue will be last_set_hue)
+            }
+            else
+            {
+                ESP_LOGW(TAG, "Missing 'value' parameter in query string");
+            }
+        }
+        free(buf);
+    }
+    else
+    {
+        ESP_LOGW(TAG, "No query string in /set_brightness request");
+    }
+
+    char resp_str[50];
+    sprintf(resp_str, "{\"status\":\"success\", \"new_state\":%d}", led_is_on ? 1 : 0);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, resp_str, strlen(resp_str));
     return ESP_OK;
@@ -189,6 +299,15 @@ httpd_handle_t start_webserver(void)
         .handler = toggle_get_handler,
         .user_ctx = NULL};
     httpd_register_uri_handler(server, &toggle_uri);
+
+    // New URI handler for setting hue
+    httpd_uri_t set_hue_uri = {.uri = "/set_hue", .method = HTTP_GET, .handler = set_hue_get_handler, .user_ctx = NULL};
+    httpd_register_uri_handler(server, &set_hue_uri);
+
+    // New URI handler for setting brightness
+    httpd_uri_t set_brightness_uri = {.uri = "/set_brightness", .method = HTTP_GET, .handler = set_brightness_get_handler, .user_ctx = NULL}; // <<< NEW
+    httpd_register_uri_handler(server, &set_brightness_uri);
+
 
     return server;
 }
