@@ -12,19 +12,10 @@
 
 #include "led_control.h"
 
-// Set to 1 to use DMA for driving the LED strip, 0 otherwise
-// Please note the RMT DMA feature is only available on chips e.g. ESP32-S3/P4
-#define LED_STRIP_USE_DMA 0
-
-#if LED_STRIP_USE_DMA
 // Numbers of the LED in the strip
-#define LED_STRIP_LED_COUNT 256
-#define LED_STRIP_MEMORY_BLOCK_WORDS 1024 // this determines the DMA block size
-#else
-// Numbers of the LED in the strip
-#define LED_STRIP_LED_COUNT 44
+#define LED_STRIP_LED_COUNT_INTERNAL 44
 #define LED_STRIP_MEMORY_BLOCK_WORDS 0 // let the driver choose a proper memory block size automatically
-#endif                                 // LED_STRIP_USE_DMA
+                                       // LED_STRIP_USE_DMA
 
 // GPIO assignment
 #define LED_STRIP_GPIO_PIN 27
@@ -35,7 +26,9 @@
 static const char *TAG = "LED_control";
 
 // Make led_strip handle global or pass it around
-static led_strip_handle_t global_led_strip = NULL;
+led_strip_handle_t global_led_strip = NULL;
+const int LED_STRIP_LED_COUNT = LED_STRIP_LED_COUNT_INTERNAL;
+
 static uint16_t s_last_set_hue = 0;
 static uint8_t s_last_set_brightness = 255;
 
@@ -44,7 +37,7 @@ led_strip_handle_t configure_led(void)
     // LED strip general initialization, according to your led board design
     led_strip_config_t strip_config = {
         .strip_gpio_num = LED_STRIP_GPIO_PIN,                        // The GPIO that connected to the LED strip's data line
-        .max_leds = LED_STRIP_LED_COUNT,                             // The number of LEDs in the strip,
+        .max_leds = LED_STRIP_LED_COUNT_INTERNAL,                    // The number of LEDs in the strip,
         .led_model = LED_MODEL_WS2812,                               // LED strip model
         .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB, // The color order of the strip: GRB
         .flags = {
@@ -57,7 +50,7 @@ led_strip_handle_t configure_led(void)
         .resolution_hz = LED_STRIP_RMT_RES_HZ,             // RMT counter clock frequency
         .mem_block_symbols = LED_STRIP_MEMORY_BLOCK_WORDS, // the memory block size used by the RMT channel
         .flags = {
-            .with_dma = LED_STRIP_USE_DMA, // Using DMA can improve performance when driving more LEDs
+            .with_dma = 0, // Using DMA can improve performance when driving more LEDs
         }};
 
     // LED Strip object handle
@@ -90,18 +83,11 @@ void set_led_state(bool on)
 // Optional: function to get current LED state (if needed for UI update)
 bool get_led_state(void)
 {
-    // This is a simple state tracking. In a more complex app,
-    // you might read actual GPIO state if directly controlling GPIO.
-    // For WS2812, we rely on the state we're tracking.
-    // For this example, we'll track it in http_server.c as `led_is_on`
     return false;
 } // Will be tracked in http_server.c
 
-
-static void hsv2rgb(uint16_t h, uint8_t v, uint8_t *r, uint8_t *g, uint8_t *b)
-{                    // <<< MODIFIED: Added v parameter
-    uint8_t s = 255; // Saturation (fixed to 255 for full color)
-
+void hsv2rgb(uint16_t h, uint8_t s, uint8_t v, uint8_t *r, uint8_t *g, uint8_t *b)
+{
     if (s == 0)
     {
         *r = *g = *b = v; // Gray scale
@@ -111,13 +97,11 @@ static void hsv2rgb(uint16_t h, uint8_t v, uint8_t *r, uint8_t *g, uint8_t *b)
     uint16_t region = h / 60;
     uint16_t remainder = h % 60;
 
-    // Use floats for intermediate calculations to avoid integer truncation issues,
-    // then cast back to uint8_t at the end.
     float f_v = (float)v / 255.0f;
     float f_s = (float)s / 255.0f;
 
     float p = f_v * (1.0f - f_s);
-    float q = f_v * (1.0f - (f_s * remainder / 60.0f));
+    float q = f_v * (1.0f - (f_s * remainder) / 60.0f);
     float t = f_v * (1.0f - (f_s * (60.0f - remainder) / 60.0f));
 
     uint8_t temp_r, temp_g, temp_b;
@@ -166,7 +150,7 @@ static void hsv2rgb(uint16_t h, uint8_t v, uint8_t *r, uint8_t *g, uint8_t *b)
 }
 
 static void set_led_hsv_internal(uint16_t hue, uint8_t brightness)
-{ // <<< NEW INTERNAL FUNCTION
+{
     if (global_led_strip == NULL)
     {
         ESP_LOGE(TAG, "LED strip not configured. Call configure_led() first.");
@@ -174,14 +158,56 @@ static void set_led_hsv_internal(uint16_t hue, uint8_t brightness)
     }
 
     uint8_t r, g, b;
-    hsv2rgb(hue, brightness, &r, &g, &b); // Call hsv2rgb with provided brightness
+    // Here, hsv2rgb is called with:
+    // h: the 'hue' parameter
+    // s: 255 (full saturation for static colors)
+    // v: the 'brightness' parameter
+    hsv2rgb(hue, 255, brightness, &r, &g, &b);
 
-    for (int i = 0; i < LED_STRIP_LED_COUNT; i++)
+    // This loop applies the calculated RGB color to ALL LEDs
+    for (int i = 0; i < LED_STRIP_LED_COUNT_INTERNAL; i++) // Note: LED_STRIP_LED_COUNT is exposed for effects
     {
         ESP_ERROR_CHECK(led_strip_set_pixel(global_led_strip, i, r, g, b));
     }
     ESP_ERROR_CHECK(led_strip_refresh(global_led_strip));
-    ESP_LOGI(TAG, "LED color set to H:%d V:%d -> R:%d G:%d B:%d", hue, brightness, r, g, b);
+    ESP_LOGI(TAG, "LED color set to H:%d S:%d V:%d -> R:%d G:%d B:%d", hue, 255, brightness, r, g, b);
+}
+
+void set_pixel_hsv(uint16_t pixel_idx, uint16_t h, uint8_t s, uint8_t v)
+{
+    if (global_led_strip == NULL)
+    {
+        ESP_LOGE(TAG, "LED strip not configured. Call configure_led() first.");
+        return;
+    }
+    if (pixel_idx >= LED_STRIP_LED_COUNT_INTERNAL)
+    {
+        ESP_LOGE(TAG, "Pixel index %d out of bounds (max %d)", pixel_idx, LED_STRIP_LED_COUNT_INTERNAL - 1);
+        return;
+    }
+
+    uint8_t r, g, b;
+
+    hsv2rgb(h, s, v, &r, &g, &b); // Call the now more flexible hsv2rgb
+    ESP_ERROR_CHECK(led_strip_set_pixel(global_led_strip, pixel_idx, r, g, b));
+}
+
+// Wrapper for led_strip_clear
+void led_control_clear_all(void)
+{
+    if (global_led_strip != NULL)
+    {
+        ESP_ERROR_CHECK(led_strip_clear(global_led_strip));
+    }
+}
+
+// Wrapper for led_strip_refresh
+void led_control_refresh_all(void)
+{
+    if (global_led_strip != NULL)
+    {
+        ESP_ERROR_CHECK(led_strip_refresh(global_led_strip));
+    }
 }
 
 
@@ -192,7 +218,7 @@ void set_led_hsv(uint16_t hue)
 }
 
 void set_led_brightness(uint8_t brightness)
-{                                                                // <<< NEW
+{
     s_last_set_brightness = brightness;                          // Store the new brightness
     set_led_hsv_internal(s_last_set_hue, s_last_set_brightness); // Use stored hue
 }

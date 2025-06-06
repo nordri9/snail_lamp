@@ -178,10 +178,10 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Configuring LED Matrix...");
 
-    // Configure the LED strip
+    // Initialize LED Strip
     configure_led();
-    // Initially set LED off
-    set_led_state(true);
+    set_led_brightness(255); // Initialize with full brightness by default
+    set_led_hsv(0);          // Initialize with red by default
 
     // Configure DNS-based captive portal, if configured
     #ifdef CONFIG_ESP_ENABLE_DHCP_CAPTIVEPORTAL

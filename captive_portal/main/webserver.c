@@ -11,6 +11,7 @@
 // #include "dns_server.h"
 
 #include "led_control.h"
+#include "led_effects.h"
 
 static const char *TAG = "webserver";
 
@@ -114,6 +115,8 @@ static esp_err_t toggle_get_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Received /toggle request");
 
+    // Before toggling, stop any running effects
+    stop_led_effect();
     // Toggle the LED state
     led_is_on = !led_is_on;
     set_led_state(led_is_on); // Call the LED control function
@@ -152,6 +155,9 @@ static esp_err_t set_hue_get_handler(httpd_req_t *req)
                 hue = atoi(param);
                 ESP_LOGI(TAG, "Received hue: %d", hue);
                 // Ensure LED is on before setting color
+
+                stop_led_effect(); // <<< NEW: Stop effect when setting solid color
+
                 if (!led_is_on)
                 {
                     led_is_on = true;
@@ -206,6 +212,9 @@ static esp_err_t set_brightness_get_handler(httpd_req_t *req)
                     brightness = 255;
 
                 ESP_LOGI(TAG, "Received brightness: %d", brightness);
+
+                stop_led_effect(); // <<< NEW: Stop effect when setting solid color
+
                 if (!led_is_on)
                 { // If LED is off, turn it on
                     led_is_on = true;
@@ -227,6 +236,63 @@ static esp_err_t set_brightness_get_handler(httpd_req_t *req)
 
     char resp_str[50];
     sprintf(resp_str, "{\"status\":\"success\", \"new_state\":%d}", led_is_on ? 1 : 0);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, resp_str, strlen(resp_str));
+    return ESP_OK;
+}
+
+/* Handler for starting LED effects */
+static esp_err_t start_effect_get_handler(httpd_req_t *req)
+{ // <<< NEW HANDLER
+    char *buf;
+    size_t buf_len;
+    led_effect_type_t effect_type = EFFECT_NONE;
+    uint32_t speed_ms = 50; // Default speed
+    uint16_t hue = 0;       // Default hue
+
+    buf_len = httpd_req_get_url_query_len(req) + 1;
+    if (buf_len > 1)
+    {
+        buf = (char *)malloc(buf_len);
+        if (!buf)
+        {
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Internal server error");
+            return ESP_FAIL;
+        }
+
+        if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK)
+        {
+            char param_type[10];
+            char param_speed[10];
+            char param_hue[10];
+
+            if (httpd_query_key_value(buf, "type", param_type, sizeof(param_type)) == ESP_OK)
+            {
+                effect_type = atoi(param_type);
+            }
+            if (httpd_query_key_value(buf, "speed", param_speed, sizeof(param_speed)) == ESP_OK)
+            {
+                speed_ms = atoi(param_speed);
+            }
+            if (httpd_query_key_value(buf, "hue", param_hue, sizeof(param_hue)) == ESP_OK)
+            {
+                hue = atoi(param_hue);
+            }
+        }
+        free(buf);
+    }
+
+    ESP_LOGI(TAG, "Received /start_effect: type=%d, speed=%lu, hue=%d", effect_type, speed_ms, hue);
+
+    if (!led_is_on)
+    { // Turn on LED if it's off
+        led_is_on = true;
+        set_led_state(true); // This will set it to the last solid color/brightness
+    }
+    start_led_effect(effect_type, speed_ms, hue);
+
+    char resp_str[50];
+    sprintf(resp_str, "{\"status\":\"success\", \"effect_type\":%d}", effect_type);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, resp_str, strlen(resp_str));
     return ESP_OK;
@@ -308,6 +374,9 @@ httpd_handle_t start_webserver(void)
     httpd_uri_t set_brightness_uri = {.uri = "/set_brightness", .method = HTTP_GET, .handler = set_brightness_get_handler, .user_ctx = NULL}; // <<< NEW
     httpd_register_uri_handler(server, &set_brightness_uri);
 
+    // New URI handler for starting effects
+    httpd_uri_t start_effect_uri = {.uri = "/start_effect", .method = HTTP_GET, .handler = start_effect_get_handler, .user_ctx = NULL}; // <<< NEW
+    httpd_register_uri_handler(server, &start_effect_uri);
 
     return server;
 }
