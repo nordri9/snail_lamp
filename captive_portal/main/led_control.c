@@ -22,7 +22,7 @@
 #define LED_STRIP_MEMORY_BLOCK_WORDS 1024 // this determines the DMA block size
 #else
 // Numbers of the LED in the strip
-#define LED_STRIP_LED_COUNT 50
+#define LED_STRIP_LED_COUNT 44
 #define LED_STRIP_MEMORY_BLOCK_WORDS 0 // let the driver choose a proper memory block size automatically
 #endif                                 // LED_STRIP_USE_DMA
 

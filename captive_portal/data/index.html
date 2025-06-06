@@ -9,23 +9,25 @@
 </head>
 
 <body>
-    <h1>🐌 Control</h1>
+    <h1>Hello, I'm your personal glowing snail!</h1>
+    <h2>How do you want me to shine?</h2>
     <div class="control-group">
         <p>Current 🐌 Status: <span id="ledStatus" class="off">OFF</span></p>
-        <button id="toggleButton">Toggle LED On/Off</button>
-    </div>
-    
-    <div class="control-group">
-        <h2>Brightness Control</h2>
-        <input type="range" id="brightnessSlider" min="0" max="255" value="255">
-        <p>Brightness: <span id="brightnessValue">255</span></p>
+        <button id="toggleButton">Tickle me On/Off</button>
     </div>
 
     <div class="control-group">
-        <h2>Color Control</h2>
+        <h2>✨How bright do you want me to glow?✨</h2>
+        <input type="range" id="brightnessSlider" min="0" max="255" value="255">
+        <p>Shininess: <span id="brightnessValue">255</span></p>
+    </div>
+
+    <div class="control-group">
+        <h2>🌈I can be any color for you!🌈</h2>
         <input type="range" id="colorSlider" min="0" max="359" value="0">
-        <div id="currentColorDisplay" style="width: 50px; height: 50px; border: 1px solid #ccc; margin: 10px auto;"></div>
-        <p>Use the toggle button to turn LEDs ON before setting color.</p>
+        <div id="currentColorDisplay" style="width: 50px; height: 50px; border: 1px solid #ccc; margin: 10px auto;">
+        </div>
+        <p>Use the tickle button to wake me up before giving me a color ^^</p>
     </div>
 
     <script src="/script.js"></script>

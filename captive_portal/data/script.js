@@ -40,11 +40,11 @@ function updateColorDisplay() {
 // Function to update UI based on LED state (on/off)
 function updateUI(state) {
     if (state) {
-        ledStatus.textContent = 'ON';
+        ledStatus.textContent = 'Glowy ✨';
         ledStatus.className = 'on';
         updateColorDisplay(); // Update color display to reflect current color
     } else {
-        ledStatus.textContent = 'OFF';
+        ledStatus.textContent = 'sleeping 💤';
         ledStatus.className = 'off';
         currentColorDisplay.style.backgroundColor = 'transparent'; // Clear color display
     }
