@@ -1,9 +1,4 @@
 {
-  "C_Cpp.intelliSenseEngine": "default",
-  "idf.espIdfPath": "/home/nordri9/esp/esp-idf",
-  "idf.toolsPath": "/home/nordri9/.espressif",
-  "idf.pythonInstallPath": "/usr/bin/python3",
-  "files.autoSave": "afterDelay",
   "idf.port": "/dev/ttyUSB0",
   "idf.openOcdConfigs": [
     "board/esp32-wrover-kit-3.3v.cfg"
@@ -13,6 +8,15 @@
   },
   "idf.flashType": "UART",
   "files.associations": {
-    "esp_wifi.h": "c"
-  }
+    "compare": "c",
+    "cstdint": "c",
+    "esp_check.h": "c",
+    "esp_log.h": "c"
+  },
+  "files.autoSave": "afterDelay",
+  "idf.espIdfPath": "/home/nordri9/esp/esp-idf",
+  "idf.toolsPath": "/home/nordri9/.espressif",
+  "idf.pythonInstallPath": "/usr/bin/python3",
+  "editor.formatOnPaste": true,
+  "editor.formatOnSave": true
 }

@@ -24,6 +24,7 @@
 #include "esp_spiffs.h"
 
 #include "webserver.h"
+#include "led_control.h"
 
 #define EXAMPLE_ESP_WIFI_SSID CONFIG_ESP_WIFI_SSID
 #define EXAMPLE_ESP_WIFI_PASS CONFIG_ESP_WIFI_PASSWORD
@@ -174,6 +175,13 @@ void app_main(void)
 
     // Initialise ESP32 in SoftAP mode
     wifi_init_softap();
+
+    ESP_LOGI(TAG, "Configuring LED Matrix...");
+
+    // Configure the LED strip
+    configure_led();
+    // Initially set LED off
+    set_led_state(true);
 
     // Configure DNS-based captive portal, if configured
     #ifdef CONFIG_ESP_ENABLE_DHCP_CAPTIVEPORTAL
