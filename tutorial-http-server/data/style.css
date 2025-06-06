@@ -3,23 +3,36 @@ body {
     text-align: center;
     margin-top: 50px;
     background-color: #f0f0f0;
+    line-height: 1.6;
+}
+h1, h2 {
+    color: #333;
+}
+.control-group {
+    background-color: white;
+    margin: 20px auto;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    max-width: 500px;
 }
 button {
     padding: 15px 30px;
-    font-size: 1.5em;
+    font-size: 1.2em; /* Slightly smaller for better fit */
     cursor: pointer;
     border-radius: 8px;
     background-color: #007bff;
     color: white;
     border: none;
     transition: background-color 0.3s ease;
+    margin-top: 10px;
 }
 button:hover {
     background-color: #0056b3;
 }
 #ledStatus {
-    font-size: 2em;
-    margin-top: 20px;
+    font-size: 1.8em; /* Slightly smaller */
+    margin-top: 10px;
     font-weight: bold;
 }
 .on {
@@ -27,4 +40,65 @@ button:hover {
 }
 .off {
     color: red;
+}
+
+/* Slider Styling (General) */
+input[type="range"] {
+    width: 80%;
+    margin-top: 20px;
+    -webkit-appearance: none;
+    height: 15px;
+    border-radius: 5px;
+    outline: none;
+    opacity: 0.9;
+    transition: opacity .2s;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: #4CAF50;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: #4CAF50;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+/* Specific styling for Color Slider */
+#colorSlider {
+    background: linear-gradient(to right,
+            rgb(255, 0, 0) 0%,
+            rgb(255, 255, 0) 17%,
+            rgb(0, 255, 0) 33%,
+            rgb(0, 255, 255) 50%,
+            rgb(0, 0, 255) 67%,
+            rgb(255, 0, 255) 83%,
+            rgb(255, 0, 0) 100%);
+}
+
+/* Specific styling for Brightness Slider */
+#brightnessSlider {
+    background: linear-gradient(to right, black 0%, white 100%);
+}
+
+
+#currentColorDisplay {
+    border-radius: 50%;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+}
+
+#brightnessValue {
+    font-weight: bold;
 }

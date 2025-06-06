@@ -11,6 +11,8 @@
 #include "esp_http_server.h"
 #include "http_server.h"
 #include "led_control.h"
+#include "dns_server.h"
+
 
 #include "esp_spiffs.h"
 
@@ -71,6 +73,7 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Initializing Wi-Fi in SoftAP mode...");
     wifi_init_softap(); // Call your Wi-Fi initialization function
+
 
     ESP_LOGI(TAG, "Configuring LED Matrix...");
 
