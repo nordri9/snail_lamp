@@ -19,23 +19,99 @@ extern const char root_end[] asm("_binary_root_html_end");
 static const char *TAG = "webserver";
 
 
-// HTTP GET Handler
-static esp_err_t root_get_handler(httpd_req_t *req)
+
+// Helper function to send files from SPIFFS
+static esp_err_t send_file_from_spiffs(httpd_req_t *req, const char *filepath, const char *content_type)
 {
-    const uint32_t root_len = root_end - root_start;
+    char full_path[64]; // Buffer for full path, e.g., "/spiffs/index.html"
+    FILE *fd = NULL;
+    struct stat file_stat;
 
-    ESP_LOGI(TAG, "Serve root");
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, root_start, root_len);
+    // Construct the full path for SPIFFS
+    snprintf(full_path, sizeof(full_path), "/spiffs%s", filepath);
 
+    if (stat(full_path, &file_stat) == -1) {
+        ESP_LOGE(TAG, "File not found: %s", full_path);
+        /* Respond with 404 Not Found */
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File not found");
+        return ESP_FAIL;
+    }
+
+    fd = fopen(full_path, "r");
+    if (!fd) {
+        ESP_LOGE(TAG, "Failed to open file : %s", full_path);
+        /* Respond with 500 Internal Server Error */
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read file");
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "Serving file: %s with Content-Type: %s", full_path, content_type);
+    httpd_resp_set_type(req, content_type);
+
+    char *chunk = malloc(file_stat.st_size + 1); // Allocate buffer for the whole file
+    if (!chunk) {
+        ESP_LOGE(TAG, "Failed to allocate memory for file content");
+        fclose(fd);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to allocate memory");
+        return ESP_FAIL;
+    }
+
+    size_t read_bytes = fread(chunk, 1, file_stat.st_size, fd);
+    if (read_bytes != file_stat.st_size) {
+        ESP_LOGE(TAG, "Failed to read all bytes from file (%zu/%ld)", read_bytes, file_stat.st_size);
+        free(chunk);
+        fclose(fd);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read file content");
+        return ESP_FAIL;
+    }
+    chunk[file_stat.st_size] = '\0'; // Null-terminate for string operations if any, good practice
+
+    httpd_resp_send(req, chunk, file_stat.st_size);
+
+    free(chunk);
+    fclose(fd);
     return ESP_OK;
 }
 
-static const httpd_uri_t root = {
+// HTTP GET Handler for index.html (root)
+static esp_err_t index_get_handler(httpd_req_t *req)
+{
+    return send_file_from_spiffs(req, "/index.html", "text/html");
+}
+
+// HTTP GET Handler for style.css
+static esp_err_t css_get_handler(httpd_req_t *req)
+{
+    return send_file_from_spiffs(req, "/style.css", "text/css");
+}
+
+// HTTP GET Handler for script.js
+static esp_err_t js_get_handler(httpd_req_t *req)
+{
+    return send_file_from_spiffs(req, "/script.js", "application/javascript");
+}
+
+static const httpd_uri_t root_uri = {
     .uri = "/",
     .method = HTTP_GET,
-    .handler = root_get_handler
+    .handler = index_get_handler,
+    .user_ctx = NULL // No user callback needed
 };
+
+static const httpd_uri_t css_uri = {
+    .uri = "/style.css",
+    .method = HTTP_GET,
+    .handler = css_get_handler,
+    .user_ctx = NULL
+};
+
+static const httpd_uri_t js_uri = {
+    .uri = "/script.js",
+    .method = HTTP_GET,
+    .handler = js_get_handler,
+    .user_ctx = NULL
+};
+
 
 // HTTP Error (404) Handler - Redirects all requests to the root page
 esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err)
@@ -63,7 +139,9 @@ httpd_handle_t start_webserver(void)
     if (httpd_start(&server, &config) == ESP_OK) {
         // Set URI handlers
         ESP_LOGI(TAG, "Registering URI handlers");
-        httpd_register_uri_handler(server, &root);
+        httpd_register_uri_handler(server, &root_uri); // Use the new root_uri
+        httpd_register_uri_handler(server, &css_uri);
+        httpd_register_uri_handler(server, &js_uri);
         httpd_register_err_handler(server, HTTPD_404_NOT_FOUND, http_404_error_handler);
     }
     return server;
