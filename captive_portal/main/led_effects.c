@@ -15,6 +15,8 @@ static TaskHandle_t s_effect_task_handle = NULL;
 // Current effect type (for status/debugging)
 static led_effect_type_t s_current_effect_type = EFFECT_NONE;
 // Parameters for the current effect task
+static volatile bool s_effect_task_should_stop = false;
+
 typedef struct
 {
     uint32_t speed_ms;
@@ -31,18 +33,21 @@ static void rainbow_cycle_task(void *pvParameters)
     uint32_t speed_ms = params->speed_ms;
 
     uint16_t hue = 0;
-    while (true)
+    while (!s_effect_task_should_stop)
     {
         for (int i = 0; i < LED_STRIP_LED_COUNT; i++)
         {
-            // Distribute hues across the strip
             set_pixel_hsv(i, (hue + (i * (360 / LED_STRIP_LED_COUNT))) % 360, 255, get_last_set_brightness());
         }
         led_control_refresh_all();
-        hue = (hue + 1) % 360; // Increment hue for the next frame
+        hue = (hue + 1) % 360;
         vTaskDelay(pdMS_TO_TICKS(speed_ms));
     }
-    vTaskDelete(NULL); // Should not reach here
+
+    // Clean up
+    ESP_LOGI(TAG, "Rainbow task exiting");
+    s_effect_task_should_stop = false;
+    vTaskDelete(NULL);
 }
 
 // Theater Chase Effect Task
@@ -200,11 +205,19 @@ void stop_led_effect(void)
 {
     if (s_effect_task_handle != NULL)
     {
-        ESP_LOGI(TAG, "Stopping active LED effect task");
-        vTaskDelete(s_effect_task_handle);
+        ESP_LOGI(TAG, "Requesting current LED effect task to stop");
+        s_effect_task_should_stop = true;
+
+        // Wait for task to exit itself
+        while (eTaskGetState(s_effect_task_handle) != eDeleted)
+        {
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+
         s_effect_task_handle = NULL;
         s_current_effect_type = EFFECT_NONE;
-        led_control_clear_all();   // Ensure strip is off/cleared after stopping
-        led_control_refresh_all(); // Refresh to apply clear
+
+        led_control_clear_all();
+        led_control_refresh_all();
     }
 }
