@@ -270,6 +270,13 @@ static esp_err_t start_effect_get_handler(httpd_req_t *req)
             {
                 effect_type = atoi(param_type);
             }
+            if (effect_type == EFFECT_NONE)
+            {
+                ESP_LOGI(TAG, "Effect type is NONE. Skipping effect start.");
+                httpd_resp_set_type(req, "application/json");
+                httpd_resp_send(req, "{\"status\":\"ignored\"}", HTTPD_RESP_USE_STRLEN);
+                return ESP_OK;
+            }
             if (httpd_query_key_value(buf, "speed", param_speed, sizeof(param_speed)) == ESP_OK)
             {
                 speed_ms = atoi(param_speed);

@@ -8,6 +8,8 @@ const effectSelect = document.getElementById('effectSelect'); // <<< NEW
 const startEffectButton = document.getElementById('startEffectButton'); // <<< NEW
 const stopEffectButton = document.getElementById('stopEffectButton');
 
+let effectRunning = false;
+
 // Function to convert HSV (Hue, Saturation, Value) to RGB for UI display
 // Hue is 0-359. Saturation is 0-1. Value (brightness) is 0-1.
 function hsvToRgb(h, s, v) { // <<< MODIFIED: Added s and v parameters
@@ -75,31 +77,34 @@ function sendBrightnessToESP(value) { // <<< NEW
 
 
 // Function to send effect command to ESP32
-function startEffectOnESP(effectType, speedMs, hue) { // <<< NEW
+function startEffectOnESP(effectType, speedMs, hue) {
     fetch(`/start_effect?type=${effectType}&speed=${speedMs}&hue=${hue}`)
         .then(response => response.json())
         .then(data => {
             console.log("Effect started response:", data);
             if (data.status === 'success' && data.effect_type !== 0) {
-                // If an effect starts, assume LEDs are ON, update UI
+                effectRunning = true;
                 updateUI(true);
             }
         })
         .catch(error => console.error('Error starting effect:', error));
 }
 
+
 // Function to stop effect command on ESP32
-function stopEffectOnESP() { // <<< NEW
-    fetch(`/start_effect?type=0`) // Type 0 is EFFECT_NONE
+function stopEffectOnESP() {
+    if (!effectRunning) return; // <- avoid unnecessary call
+
+    fetch(`/start_effect?type=0`)
         .then(response => response.json())
         .then(data => {
             console.log("Effect stopped response:", data);
-            // After stopping effect, default to last solid color
-            // updateUI(true); // Re-activate solid color display (optional, can be removed)
-            updateColorDisplay(); // Set the UI display to the last solid color
+            effectRunning = false;
+            updateColorDisplay();
         })
         .catch(error => console.error('Error stopping effect:', error));
 }
+
 
 
 

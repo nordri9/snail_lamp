@@ -62,7 +62,7 @@ static void theater_chase_task(void *pvParameters)
     hsv2rgb(hue, 255, get_last_set_brightness(), &r, &g, &b); // Get RGB of chase color
 
     int offset = 0;
-    while (true)
+    while (!s_effect_task_should_stop)
     {
         led_control_clear_all(); // Clear before drawing
 
@@ -77,6 +77,9 @@ static void theater_chase_task(void *pvParameters)
         offset = (offset + 1) % 3; // Shift the pattern
         vTaskDelay(pdMS_TO_TICKS(speed_ms));
     }
+    // Clean up
+    ESP_LOGI(TAG, "Theater Chase task exiting");
+    s_effect_task_should_stop = false;
     vTaskDelete(NULL);
 }
 
@@ -91,7 +94,7 @@ static void sparkle_task(void *pvParameters)
     uint8_t r, g, b;
     uint8_t sparkle_brightness = 150; // Sparkle brightness
 
-    while (true)
+    while (!s_effect_task_should_stop)
     {
         led_control_clear_all(); // Start with a clear strip
 
@@ -108,6 +111,9 @@ static void sparkle_task(void *pvParameters)
         led_control_refresh_all();
         vTaskDelay(pdMS_TO_TICKS(speed_ms / 2)); // Shorter delay for "fade out"
     }
+    // Clean up
+    ESP_LOGI(TAG, "Sparkle task exiting");
+    s_effect_task_should_stop = false;
     vTaskDelete(NULL);
 }
 
@@ -125,7 +131,7 @@ static void wave_task(void *pvParameters)
     int wave_size = 5; // Size of the wave block
     int current_pos = 0;
 
-    while (true)
+    while (!s_effect_task_should_stop)
     {
         led_control_clear_all(); // Clear before drawing
 
@@ -139,6 +145,9 @@ static void wave_task(void *pvParameters)
         current_pos = (current_pos + 1) % LED_STRIP_LED_COUNT; // Move the wave
         vTaskDelay(pdMS_TO_TICKS(speed_ms));
     }
+    // Clean up
+    ESP_LOGI(TAG, "Wave task exiting");
+    s_effect_task_should_stop = false;
     vTaskDelete(NULL);
 }
 
