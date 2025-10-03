@@ -181,7 +181,7 @@ void app_main(void)
     // Initialize LED Strip
     configure_led();
     set_led_brightness(255); // Initialize with full brightness by default
-    set_led_hsv(0);          // Initialize with red by default
+    set_led_hsv(300);          // Initialize with red by default
 
     // Configure DNS-based captive portal, if configured
     #ifdef CONFIG_ESP_ENABLE_DHCP_CAPTIVEPORTAL

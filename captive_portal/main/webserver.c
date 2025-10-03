@@ -305,6 +305,7 @@ static esp_err_t start_effect_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+
 static const httpd_uri_t root_uri = {
     .uri = "/",
     .method = HTTP_GET,
