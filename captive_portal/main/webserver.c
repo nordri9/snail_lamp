@@ -28,6 +28,7 @@ static esp_err_t send_file_from_spiffs(httpd_req_t *req, const char *filepath, c
     if (stat(full_path, &file_stat) == -1)
     {
         ESP_LOGE(TAG, "File not found: %s", full_path);
+
         /* Respond with 404 Not Found */
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File not found");
         return ESP_FAIL;
@@ -270,11 +271,13 @@ static esp_err_t start_effect_get_handler(httpd_req_t *req)
             {
                 effect_type = atoi(param_type);
             }
+            // Replace the current EFFECT_NONE check with:
             if (effect_type == EFFECT_NONE)
             {
-                ESP_LOGI(TAG, "Effect type is NONE. Skipping effect start.");
+                ESP_LOGI(TAG, "Effect type is NONE. Stopping current effect if any.");
+                stop_led_effect();
                 httpd_resp_set_type(req, "application/json");
-                httpd_resp_send(req, "{\"status\":\"ignored\"}", HTTPD_RESP_USE_STRLEN);
+                httpd_resp_send(req, "{\"status\":\"success\", \"effect_type\":0}", HTTPD_RESP_USE_STRLEN);
                 return ESP_OK;
             }
             if (httpd_query_key_value(buf, "speed", param_speed, sizeof(param_speed)) == ESP_OK)
@@ -305,7 +308,6 @@ static esp_err_t start_effect_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-
 static const httpd_uri_t root_uri = {
     .uri = "/",
     .method = HTTP_GET,
@@ -334,6 +336,7 @@ esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err)
     httpd_resp_set_hdr(req, "Location", "/");
     // iOS requires content in the response to detect a captive portal, simply redirecting is not sufficient.
     httpd_resp_send(req, "Redirect to the captive portal", HTTPD_RESP_USE_STRLEN);
+    ESP_LOGW(TAG, "404 handler triggered for: %s", req->uri);
 
     ESP_LOGI(TAG, "Redirecting to root");
     return ESP_OK;

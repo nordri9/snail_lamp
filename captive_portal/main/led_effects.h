@@ -2,6 +2,7 @@
 #define LED_EFFECTS_H
 
 #include <stdint.h>
+#include "led_control.h"
 
 #ifdef __cplusplus
 extern "C"
