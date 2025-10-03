@@ -176,7 +176,7 @@ startEffectButton.addEventListener('click', () => {
         speed = 20; // Faster sparkle
     } else if (selectedEffect === 4) { // Wave
         speed = 70; // Wave speed
-        hue = 240; // Set Wave to blue (hue 240) by default for contrast
+        //hue = 240; // Set Wave to blue (hue 240) by default for contrast
     }
 
     startEffectOnESP(selectedEffect, speed, hue);

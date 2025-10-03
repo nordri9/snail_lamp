@@ -11,7 +11,8 @@
     "compare": "c",
     "cstdint": "c",
     "esp_check.h": "c",
-    "esp_log.h": "c"
+    "esp_log.h": "c",
+    "led_effects.h": "c"
   },
   "files.autoSave": "afterDelay",
   "idf.espIdfPath": "/home/nordri9/esp/esp-idf",

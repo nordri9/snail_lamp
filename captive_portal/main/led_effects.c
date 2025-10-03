@@ -2,231 +2,166 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h" // For mutex
 #include "esp_log.h"
-#include "esp_random.h" // For esp_random() for sparkle effect
+#include "esp_random.h"
 
-#include "led_control.h" // Includes led_strip.h and exposes global_led_strip, LED_STRIP_LED_COUNT, set_pixel_hsv etc.
+#include "led_control.h"
 #include "led_effects.h"
 
 static const char *TAG = "LED_effects";
 
-// Task handle for the currently running effect
-static TaskHandle_t s_effect_task_handle = NULL;
-// Current effect type (for status/debugging)
-static led_effect_type_t s_current_effect_type = EFFECT_NONE;
-// Parameters for the current effect task
-static volatile bool s_effect_task_should_stop = false;
+// --- State Variables ---
+static TaskHandle_t s_animator_task_handle = NULL;
+static SemaphoreHandle_t s_state_mutex = NULL;
 
-typedef struct
+// Use a single struct to hold all state, protected by the mutex
+static struct
 {
+    led_effect_type_t type;
     uint32_t speed_ms;
     uint16_t color_hue;
-} effect_params_t;
+    // Effect-specific state variables
+    uint32_t state1; // e.g., hue for rainbow, offset for chase
+    uint32_t state2; // e.g., position for wave
+} s_effect_state = {.type = EFFECT_NONE, .speed_ms = 50};
 
-// --- Internal Effect Task Functions ---
+// --- Animator Task ---
 
-// Rainbow Cycle Effect Task
-static void rainbow_cycle_task(void *pvParameters)
+static void led_animator_task(void *pvParameters)
 {
-    ESP_LOGI(TAG, "Starting Rainbow Cycle effect");
-    effect_params_t *params = (effect_params_t *)pvParameters;
-    uint32_t speed_ms = params->speed_ms;
+    ESP_LOGI(TAG, "LED Animator Task Started");
 
-    uint16_t hue = 0;
-    while (!s_effect_task_should_stop)
+    while (1)
     {
-        for (int i = 0; i < LED_STRIP_LED_COUNT; i++)
+        // Lock the state while we read it
+        xSemaphoreTake(s_state_mutex, portMAX_DELAY);
+
+        // Copy state locally to minimize mutex lock time
+        led_effect_type_t current_type = s_effect_state.type;
+        uint32_t speed_ms = s_effect_state.speed_ms;
+        uint16_t hue = s_effect_state.color_hue;
+
+        // Decide which effect to render for this frame
+        switch (current_type)
         {
-            set_pixel_hsv(i, (hue + (i * (360 / LED_STRIP_LED_COUNT))) % 360, 255, get_last_set_brightness());
-        }
-        led_control_refresh_all();
-        hue = (hue + 1) % 360;
-        vTaskDelay(pdMS_TO_TICKS(speed_ms));
-    }
-
-    // Clean up
-    ESP_LOGI(TAG, "Rainbow task exiting");
-    s_effect_task_should_stop = false;
-    vTaskDelete(NULL);
-}
-
-// Theater Chase Effect Task
-static void theater_chase_task(void *pvParameters)
-{
-    ESP_LOGI(TAG, "Starting Theater Chase effect");
-    effect_params_t *params = (effect_params_t *)pvParameters;
-    uint32_t speed_ms = params->speed_ms;
-    uint16_t hue = params->color_hue; // Use passed hue for the chase color
-
-    uint8_t r, g, b;
-    hsv2rgb(hue, 255, get_last_set_brightness(), &r, &g, &b); // Get RGB of chase color
-
-    int offset = 0;
-    while (!s_effect_task_should_stop)
-    {
-        led_control_clear_all(); // Clear before drawing
-
-        for (int i = 0; i < LED_STRIP_LED_COUNT; i++)
+        case EFFECT_RAINBOW_CYCLE:
         {
-            if ((i + offset) % 3 == 0)
-            { // Light up every 3rd LED (offset by `offset`)
-                ESP_ERROR_CHECK(led_strip_set_pixel(global_led_strip, i, r, g, b));
+            uint16_t current_hue = s_effect_state.state1;
+            for (int i = 0; i < LED_STRIP_LED_COUNT; i++)
+            {
+                set_pixel_hsv(i, (current_hue + (i * (360 / LED_STRIP_LED_COUNT))) % 360, 255, get_last_set_brightness());
             }
+            s_effect_state.state1 = (current_hue + 1) % 360; // Update state for next frame
+            break;
         }
-        led_control_refresh_all();
-        offset = (offset + 1) % 3; // Shift the pattern
-        vTaskDelay(pdMS_TO_TICKS(speed_ms));
-    }
-    // Clean up
-    ESP_LOGI(TAG, "Theater Chase task exiting");
-    s_effect_task_should_stop = false;
-    vTaskDelete(NULL);
-}
 
-// Sparkle Effect Task
-static void sparkle_task(void *pvParameters)
-{
-    ESP_LOGI(TAG, "Starting Sparkle effect");
-    effect_params_t *params = (effect_params_t *)pvParameters;
-    uint32_t speed_ms = params->speed_ms; // Delay between sparkles
-    uint16_t hue = params->color_hue;     // Base hue for sparkles (or can be random)
-
-    uint8_t r, g, b;
-    uint8_t sparkle_brightness = 150; // Sparkle brightness
-
-    while (!s_effect_task_should_stop)
-    {
-        led_control_clear_all(); // Start with a clear strip
-
-        // Set one or more random pixels
-        int pixel_idx = esp_random() % LED_STRIP_LED_COUNT;
-        hsv2rgb(hue, 255, sparkle_brightness, &r, &g, &b); // Use fixed saturation for sparkle
-        ESP_ERROR_CHECK(led_strip_set_pixel(global_led_strip, pixel_idx, r, g, b));
-
-        led_control_refresh_all();
-        vTaskDelay(pdMS_TO_TICKS(speed_ms));
-
-        // Optional: fade out
-        led_control_clear_all();
-        led_control_refresh_all();
-        vTaskDelay(pdMS_TO_TICKS(speed_ms / 2)); // Shorter delay for "fade out"
-    }
-    // Clean up
-    ESP_LOGI(TAG, "Sparkle task exiting");
-    s_effect_task_should_stop = false;
-    vTaskDelete(NULL);
-}
-
-// Simple Wave Effect Task (traveling solid block of color)
-static void wave_task(void *pvParameters)
-{
-    ESP_LOGI(TAG, "Starting Wave effect");
-    effect_params_t *params = (effect_params_t *)pvParameters;
-    uint32_t speed_ms = params->speed_ms;
-    uint16_t hue = params->color_hue; // Wave color hue
-
-    uint8_t r, g, b;
-    hsv2rgb(hue, 255, get_last_set_brightness(), &r, &g, &b);
-
-    int wave_size = 5; // Size of the wave block
-    int current_pos = 0;
-
-    while (!s_effect_task_should_stop)
-    {
-        led_control_clear_all(); // Clear before drawing
-
-        for (int i = 0; i < wave_size; i++)
+        case EFFECT_THEATER_CHASE:
         {
-            int pixel_idx = (current_pos + i) % LED_STRIP_LED_COUNT;
-            ESP_ERROR_CHECK(led_strip_set_pixel(global_led_strip, pixel_idx, r, g, b));
+            uint8_t r, g, b;
+            hsv2rgb(hue, 255, get_last_set_brightness(), &r, &g, &b);
+            led_control_clear_all();
+            int offset = s_effect_state.state1;
+            for (int i = 0; i < LED_STRIP_LED_COUNT; i++)
+            {
+                if ((i + offset) % 3 == 0)
+                {
+                    led_strip_set_pixel(global_led_strip, i, r, g, b);
+                }
+            }
+            s_effect_state.state1 = (offset + 1) % 3;
+            break;
         }
-        led_control_refresh_all();
 
-        current_pos = (current_pos + 1) % LED_STRIP_LED_COUNT; // Move the wave
-        vTaskDelay(pdMS_TO_TICKS(speed_ms));
+        case EFFECT_SPARKLE:
+        {
+            // A better sparkle: set a random pixel, then clear it next frame
+            // This avoids clearing the whole strip which causes flicker
+            int last_pixel = s_effect_state.state1;
+            led_strip_set_pixel(global_led_strip,last_pixel, 0, 0, 0); // Clear last sparkle
+
+            int pixel_idx = esp_random() % LED_STRIP_LED_COUNT;
+            uint8_t r, g, b;
+            hsv2rgb(hue, 255, 200, &r, &g, &b); // Use a bright sparkle color
+            led_strip_set_pixel(global_led_strip,pixel_idx, r, g, b);
+
+            s_effect_state.state1 = pixel_idx;
+            break;
+        }
+
+        case EFFECT_WAVE:
+        {
+            uint8_t r, g, b;
+            hsv2rgb(hue, 255, get_last_set_brightness(), &r, &g, &b);
+            led_control_clear_all();
+            int wave_size = 5;
+            int current_pos = s_effect_state.state1;
+            for (int i = 0; i < wave_size; i++)
+            {
+                int pixel_idx = (current_pos + i) % LED_STRIP_LED_COUNT;
+                led_strip_set_pixel(global_led_strip, pixel_idx, r, g, b);
+            }
+            s_effect_state.state1 = (current_pos + 1) % LED_STRIP_LED_COUNT;
+            break;
+        }
+
+        case EFFECT_NONE:
+        default:
+            // Do nothing, the loop will just delay.
+            // A `stop_led_effect` call already cleared the strip.
+            break;
+        }
+
+        // Unlock the state
+        xSemaphoreGive(s_state_mutex);
+
+        // If an effect is active, refresh the strip
+        if (current_type != EFFECT_NONE)
+        {
+            led_control_refresh_all();
+        }
+
+        // Delay until the next frame
+        vTaskDelay(pdMS_TO_TICKS(speed_ms > 0 ? speed_ms : 50));
     }
-    // Clean up
-    ESP_LOGI(TAG, "Wave task exiting");
-    s_effect_task_should_stop = false;
-    vTaskDelete(NULL);
 }
 
-// --- Public Effect Control Functions ---
+// --- Public Control Functions ---
 
 void start_led_effect(led_effect_type_t effect_type, uint32_t speed_ms, uint16_t color_hue)
 {
-    // Stop any existing effect first
-    stop_led_effect();
-
-
-
-    if (effect_type == EFFECT_NONE)
+    // Create the animator task if it doesn't exist
+    if (s_animator_task_handle == NULL)
     {
-        ESP_LOGI(TAG, "Stopping effects (EFFECT_NONE requested)");
-        // If EFFECT_NONE, we just stopped the previous one, so nothing more to do.
-        return;
+        s_state_mutex = xSemaphoreCreateMutex();
+        xTaskCreate(led_animator_task, "Animator", 4096, NULL, 5, &s_animator_task_handle);
     }
 
-    s_current_effect_type = effect_type;
-    effect_params_t *params = (effect_params_t *)malloc(sizeof(effect_params_t));
-    if (params == NULL)
-    {
-        ESP_LOGE(TAG, "Failed to allocate memory for effect parameters!");
-        s_current_effect_type = EFFECT_NONE;
-        return;
-    }
-    params->speed_ms = speed_ms;
-    params->color_hue = color_hue;
+    // Lock the state for writing
+    xSemaphoreTake(s_state_mutex, portMAX_DELAY);
 
-    BaseType_t xReturned;
-    switch (effect_type)
+    // If we are starting a new effect, clear the strip and reset state
+    if (s_effect_state.type != effect_type)
     {
-    case EFFECT_RAINBOW_CYCLE:
-        xReturned = xTaskCreate(rainbow_cycle_task, "RainbowCycle", 4096, params, 5, &s_effect_task_handle);
-        break;
-    case EFFECT_THEATER_CHASE:
-        xReturned = xTaskCreate(theater_chase_task, "TheaterChase", 4096, params, 5, &s_effect_task_handle);
-        break;
-    case EFFECT_SPARKLE:
-        xReturned = xTaskCreate(sparkle_task, "Sparkle", 4096, params, 5, &s_effect_task_handle);
-        break;
-    case EFFECT_WAVE:
-        xReturned = xTaskCreate(wave_task, "Wave", 4096, params, 5, &s_effect_task_handle);
-        break;
-    default:
-        ESP_LOGW(TAG, "Unknown effect type: %d", effect_type);
-        s_current_effect_type = EFFECT_NONE;
-        free(params);
-        return;
+        led_control_clear_all();
+        led_control_refresh_all();
+        s_effect_state.state1 = 0;
+        s_effect_state.state2 = 0;
     }
 
-    if (xReturned != pdPASS)
-    {
-        ESP_LOGE(TAG, "Failed to create effect task!");
-        s_current_effect_type = EFFECT_NONE;
-        free(params);
-        return;
-    }
-    ESP_LOGI(TAG, "Started new effect task: %d", effect_type);
+    // Update the shared state struct
+    s_effect_state.type = effect_type;
+    s_effect_state.speed_ms = speed_ms;
+    s_effect_state.color_hue = color_hue;
+
+    ESP_LOGI(TAG, "Set effect to %d with speed %lu", effect_type, speed_ms);
+
+    // Unlock
+    xSemaphoreGive(s_state_mutex);
 }
 
 void stop_led_effect(void)
 {
-    if (s_effect_task_handle != NULL)
-    {
-        ESP_LOGI(TAG, "Requesting current LED effect task to stop");
-        s_effect_task_should_stop = true;
-
-        // Wait for task to exit itself
-        while (eTaskGetState(s_effect_task_handle) != eDeleted)
-        {
-            vTaskDelay(pdMS_TO_TICKS(10));
-        }
-
-        s_effect_task_handle = NULL;
-        s_current_effect_type = EFFECT_NONE;
-
-        led_control_clear_all();
-        led_control_refresh_all();
-    }
+    // Just set the effect type to NONE. The animator task will handle the rest.
+    start_led_effect(EFFECT_NONE, 0, 0);
 }
