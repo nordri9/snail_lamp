@@ -157,62 +157,6 @@ static esp_err_t start_effect_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-/* Handler for "/set_effect_speed" URI
-   Query param: speed (ms)
-   If an effect is currently active, update its speed in-flight.
-   If no effect active, return an error JSON.
-*/
-static esp_err_t set_effect_speed_get_handler(httpd_req_t *req)
-{
-    ESP_LOGI(TAG, "Received /set_effect_speed request");
-
-    char buf[64];
-    uint32_t speed_ms = 0;
-    bool speed_provided = false;
-
-    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK)
-    {
-        char param[16];
-        if (httpd_query_key_value(buf, "speed", param, sizeof(param)) == ESP_OK)
-        {
-            speed_ms = (uint32_t)atoi(param);
-            speed_provided = true;
-        }
-    }
-
-    if (!speed_provided)
-    {
-        const char *msg = "{\"status\":\"error\",\"message\":\"missing 'speed' parameter\"}";
-        httpd_resp_set_type(req, "application/json");
-        httpd_resp_send(req, msg, strlen(msg));
-        return ESP_OK;
-    }
-
-    led_effect_type_t cur = get_current_effect_type();
-    if (cur == EFFECT_NONE)
-    {
-        // nothing running
-        char resp_str[128];
-        snprintf(resp_str, sizeof(resp_str),
-                 "{\"status\":\"error\",\"message\":\"no active effect to update\",\"requested_speed\":%lu}",
-                 speed_ms);
-        httpd_resp_set_type(req, "application/json");
-        httpd_resp_send(req, resp_str, strlen(resp_str));
-        return ESP_OK;
-    }
-
-    // Update speed in-flight
-    update_effect_speed(speed_ms);
-
-    char resp_str[128];
-    snprintf(resp_str, sizeof(resp_str),
-             "{\"status\":\"success\",\"effect_type\":%d,\"new_speed\":%lu}",
-             (int)cur, speed_ms);
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, resp_str, strlen(resp_str));
-    return ESP_OK;
-}
-
 // --- URI Registration Function ---
 
 esp_err_t register_api_uri_handlers(httpd_handle_t server)
@@ -236,10 +180,6 @@ esp_err_t register_api_uri_handlers(httpd_handle_t server)
     httpd_uri_t start_effect_uri = {
         .uri = "/start_effect", .method = HTTP_GET, .handler = start_effect_get_handler};
     httpd_register_uri_handler(server, &start_effect_uri);
-
-    httpd_uri_t set_effect_speed_uri = {
-        .uri = "/set_effect_speed", .method = HTTP_GET, .handler = set_effect_speed_get_handler};
-    httpd_register_uri_handler(server, &set_effect_speed_uri);
 
     return ESP_OK;
 }

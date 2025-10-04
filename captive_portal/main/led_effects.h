@@ -36,14 +36,6 @@ extern "C"
      */
     void stop_led_effect(void);
 
-    /* NEW: update the speed of the currently-running effect (no reset) */
-    void update_effect_speed(uint32_t speed_ms);
-
-    /* NEW: getters so web handlers can know current effect state */
-    led_effect_type_t get_current_effect_type(void);
-    uint32_t get_current_effect_speed_ms(void);
-    uint16_t get_current_effect_hue(void);
-
 #ifdef __cplusplus
 }
 #endif

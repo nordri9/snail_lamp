@@ -160,62 +160,6 @@ void start_led_effect(led_effect_type_t effect_type, uint32_t speed_ms, uint16_t
     xSemaphoreGive(s_state_mutex);
 }
 
-/* Return the currently active effect (EFFECT_NONE if none) */
-led_effect_type_t get_current_effect_type(void)
-{
-    if (s_state_mutex == NULL)
-    {
-        return EFFECT_NONE;
-    }
-    led_effect_type_t cur;
-    xSemaphoreTake(s_state_mutex, portMAX_DELAY);
-    cur = s_effect_state.type;
-    xSemaphoreGive(s_state_mutex);
-    return cur;
-}
-
-/* Return the currently configured animation speed */
-uint32_t get_current_effect_speed_ms(void)
-{
-    if (s_state_mutex == NULL)
-    {
-        return 0;
-    }
-    uint32_t sp;
-    xSemaphoreTake(s_state_mutex, portMAX_DELAY);
-    sp = s_effect_state.speed_ms;
-    xSemaphoreGive(s_state_mutex);
-    return sp;
-}
-
-/* Return the current color hue used by the effect */
-uint16_t get_current_effect_hue(void)
-{
-    if (s_state_mutex == NULL)
-    {
-        return 0;
-    }
-    uint16_t hue;
-    xSemaphoreTake(s_state_mutex, portMAX_DELAY);
-    hue = s_effect_state.color_hue;
-    xSemaphoreGive(s_state_mutex);
-    return hue;
-}
-
-/* Update the speed while the animator is running. Does not reset effect state. */
-void update_effect_speed(uint32_t speed_ms)
-{
-    if (s_state_mutex == NULL)
-    {
-        ESP_LOGW(TAG, "update_effect_speed(): animator not running, ignoring");
-        return;
-    }
-    xSemaphoreTake(s_state_mutex, portMAX_DELAY);
-    s_effect_state.speed_ms = speed_ms;
-    ESP_LOGI(TAG, "update_effect_speed(): speed set to %lu ms", speed_ms);
-    xSemaphoreGive(s_state_mutex);
-}
-
 void stop_led_effect(void)
 {
     // Just set the effect type to NONE. The animator task will handle the rest.
