@@ -2,11 +2,17 @@ const toggleButton = document.getElementById('toggleButton');
 const ledStatus = document.getElementById('ledStatus');
 const colorSlider = document.getElementById('colorSlider');
 const currentColorDisplay = document.getElementById('currentColorDisplay');
-const brightnessSlider = document.getElementById('brightnessSlider'); // <<< NEW
+const brightnessSlider = document.getElementById('brightnessSlider');
 const brightnessValueSpan = document.getElementById('brightnessValue');
-const effectSelect = document.getElementById('effectSelect'); // <<< NEW
-const startEffectButton = document.getElementById('startEffectButton'); // <<< NEW
+const effectSelect = document.getElementById('effectSelect');
+const startEffectButton = document.getElementById('startEffectButton');
 const stopEffectButton = document.getElementById('stopEffectButton');
+
+// <<< NEW: Get references for the Speed Slider elements >>>
+const speedSlider = document.getElementById('speedSlider');
+const speedValueSpan = document.getElementById('speedValue');
+
+let effectRunning = false;
 
 // Function to convert HSV (Hue, Saturation, Value) to RGB for UI display
 // Hue is 0-359. Saturation is 0-1. Value (brightness) is 0-1.
@@ -64,7 +70,7 @@ function sendColorToESP(hue) {
 }
 
 // Function to send brightness (value) to ESP32
-function sendBrightnessToESP(value) { // <<< NEW
+function sendBrightnessToESP(value) {
     fetch(`/set_brightness?value=${value}`)
         .then(response => response.json())
         .then(data => {
@@ -75,7 +81,7 @@ function sendBrightnessToESP(value) { // <<< NEW
 
 
 // Function to send effect command to ESP32
-function startEffectOnESP(effectType, speedMs, hue) { // <<< NEW
+function startEffectOnESP(effectType, speedMs, hue) {
     fetch(`/start_effect?type=${effectType}&speed=${speedMs}&hue=${hue}`)
         .then(response => response.json())
         .then(data => {
@@ -89,7 +95,7 @@ function startEffectOnESP(effectType, speedMs, hue) { // <<< NEW
 }
 
 // Function to stop effect command on ESP32
-function stopEffectOnESP() { // <<< NEW
+function stopEffectOnESP() {
     fetch(`/start_effect?type=0`) // Type 0 is EFFECT_NONE
         .then(response => response.json())
         .then(data => {
@@ -113,8 +119,8 @@ window.onload = function () {
 
             // Initialize slider and color display with the fetched hue and brightness
             colorSlider.value = data.current_hue; // Set color slider position
-            brightnessSlider.value = data.current_brightness; // <<< NEW: Set brightness slider position
-            brightnessValueSpan.textContent = data.current_brightness; // <<< NEW: Update brightness value text
+            brightnessSlider.value = data.current_brightness;
+            brightnessValueSpan.textContent = data.current_brightness;
 
             updateColorDisplay(); // Update color display to reflect fetched color/brightness
         })
@@ -139,7 +145,7 @@ colorSlider.addEventListener('input', () => {
     updateColorDisplay(); // Always update the local color display instantly
 
     // Stop any running effect before setting a solid color
-    stopEffectOnESP(); // <<< NEW: Stop effect when changing solid color
+    stopEffectOnESP();
     if (ledStatus.className === 'on') {
         sendColorToESP(currentHue);
     }
@@ -152,10 +158,31 @@ brightnessSlider.addEventListener('input', () => {
     updateColorDisplay();
 
     // Stop any running effect before setting solid brightness
-    stopEffectOnESP(); // <<< NEW: Stop effect when changing solid brightness
+    stopEffectOnESP();
     if (ledStatus.className === 'on') {
         sendBrightnessToESP(currentBrightness);
     }
+});
+
+// <<< NEW: Event listener for the Speed slider >>>
+speedSlider.addEventListener('input', () => {
+    const currentSpeed = speedSlider.value;
+    speedValueSpan.textContent = currentSpeed; // Use the correct span reference
+
+    // Only send the speed update if an effect is actually running.
+    if (!effectRunning) {
+        console.log("Speed slider moved, but no effect is active.");
+        return;
+    }
+
+    fetch(`/set_effect_speed?speed=${encodeURIComponent(currentSpeed)}`)
+        .then(resp => resp.json())
+        .then(json => {
+            console.log('set_effect_speed:', json);
+            // Optional: If the server returns an error (e.g., "no active effect"), 
+            // you could set effectRunning = false here, though it should be handled by stopEffectOnESP.
+        })
+        .catch(err => console.error('Error updating speed', err));
 });
 
 // Event listener for "Start Effect" button <<< NEW
